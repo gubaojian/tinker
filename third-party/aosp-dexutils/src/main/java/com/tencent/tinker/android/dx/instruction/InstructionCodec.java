@@ -35,6 +35,15 @@ public final class InstructionCodec {
     public static final int INDEX_TYPE_METHOD_REF = 4;
     /** field reference index */
     public static final int INDEX_TYPE_FIELD_REF = 5;
+    /** method index and a proto index */
+    public static final int INDEX_TYPE_METHOD_AND_PROTO_REF = 6;
+    /** call site reference index */
+    public static final int INDEX_TYPE_CALL_SITE_REF = 7;
+    /** method handle reference index (for loading constant method handles) */
+    public static final int INDEX_TYPE_METHOD_HANDLE_REF = 8;
+    /** proto reference index (for loading constant proto ref) */
+    public static final int INDEX_TYPE_PROTO_REF = 9;
+
     /** "Unknown." Used for undefined opcodes. */
     public static final int INSN_FORMAT_UNKNOWN = 0;
     public static final int INSN_FORMAT_00X = 1;
@@ -62,9 +71,12 @@ public final class InstructionCodec {
     public static final int INSN_FORMAT_35C = 23;
     public static final int INSN_FORMAT_3RC = 24;
     public static final int INSN_FORMAT_51L = 25;
-    public static final int INSN_FORMAT_FILL_ARRAY_DATA_PAYLOAD = 26;
-    public static final int INSN_FORMAT_PACKED_SWITCH_PAYLOAD = 27;
-    public static final int INSN_FORMAT_SPARSE_SWITCH_PAYLOAD = 28;
+    public static final int INSN_FORMAT_45CC = 26;
+    public static final int INSN_FORMAT_4RCC = 27;
+    public static final int INSN_FORMAT_PACKED_SWITCH_PAYLOAD = 28;
+    public static final int INSN_FORMAT_SPARSE_SWITCH_PAYLOAD = 29;
+    public static final int INSN_FORMAT_FILL_ARRAY_DATA_PAYLOAD = 30;
+
     private InstructionCodec() {
         throw new UnsupportedOperationException();
     }
@@ -259,11 +271,29 @@ public final class InstructionCodec {
         return (short) b;
     }
 
+    /**
+     * Gets the C register number, as a code unit. This will throw if the
+     * value is out of the range of an unsigned code unit.
+     */
+    public static short getCUnit(int c) {
+        if ((c & ~0xffff) != 0) {
+            throw new DexException("Register C out of range: " + Hex.u8(c));
+        }
+
+        return (short) c;
+    }
+
     public static int getInstructionIndexType(int opcode) {
         switch (opcode) {
             case Opcodes.CONST_STRING:
             case Opcodes.CONST_STRING_JUMBO: {
                 return INDEX_TYPE_STRING_REF;
+            }
+            case Opcodes.CONST_METHOD_HANDLE: {
+                return INDEX_TYPE_METHOD_HANDLE_REF;
+            }
+            case Opcodes.CONST_METHOD_TYPE: {
+                return INDEX_TYPE_PROTO_REF;
             }
             case Opcodes.CONST_CLASS:
             case Opcodes.CHECK_CAST:
@@ -315,6 +345,14 @@ public final class InstructionCodec {
             case Opcodes.INVOKE_STATIC_RANGE:
             case Opcodes.INVOKE_INTERFACE_RANGE: {
                 return INDEX_TYPE_METHOD_REF;
+            }
+            case Opcodes.INVOKE_POLYMORPHIC:
+            case Opcodes.INVOKE_POLYMORPHIC_RANGE: {
+                return INDEX_TYPE_METHOD_AND_PROTO_REF;
+            }
+            case Opcodes.INVOKE_CUSTOM:
+            case Opcodes.INVOKE_CUSTOM_RANGE: {
+                return INDEX_TYPE_CALL_SITE_REF;
             }
             case Opcodes.SPECIAL_FORMAT:
             case Opcodes.PACKED_SWITCH_PAYLOAD:
@@ -590,6 +628,8 @@ public final class InstructionCodec {
             }
             case Opcodes.CONST_STRING:
             case Opcodes.CONST_CLASS:
+            case Opcodes.CONST_METHOD_HANDLE:
+            case Opcodes.CONST_METHOD_TYPE:
             case Opcodes.CHECK_CAST:
             case Opcodes.NEW_INSTANCE:
             case Opcodes.SGET:
@@ -756,7 +796,8 @@ public final class InstructionCodec {
             case Opcodes.INVOKE_SUPER:
             case Opcodes.INVOKE_DIRECT:
             case Opcodes.INVOKE_STATIC:
-            case Opcodes.INVOKE_INTERFACE: {
+            case Opcodes.INVOKE_INTERFACE:
+            case Opcodes.INVOKE_CUSTOM: {
                 return INSN_FORMAT_35C;
             }
             case Opcodes.FILLED_NEW_ARRAY_RANGE:
@@ -764,11 +805,18 @@ public final class InstructionCodec {
             case Opcodes.INVOKE_SUPER_RANGE:
             case Opcodes.INVOKE_DIRECT_RANGE:
             case Opcodes.INVOKE_STATIC_RANGE:
-            case Opcodes.INVOKE_INTERFACE_RANGE: {
+            case Opcodes.INVOKE_INTERFACE_RANGE:
+            case Opcodes.INVOKE_CUSTOM_RANGE: {
                 return INSN_FORMAT_3RC;
             }
             case Opcodes.CONST_WIDE: {
                 return INSN_FORMAT_51L;
+            }
+            case Opcodes.INVOKE_POLYMORPHIC: {
+                return INSN_FORMAT_45CC;
+            }
+            case Opcodes.INVOKE_POLYMORPHIC_RANGE: {
+                return INSN_FORMAT_4RCC;
             }
             case Opcodes.PACKED_SWITCH_PAYLOAD: {
                 return INSN_FORMAT_PACKED_SWITCH_PAYLOAD;

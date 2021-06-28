@@ -20,6 +20,7 @@ import com.tencent.tinker.android.dex.DexException;
 import com.tencent.tinker.android.dx.util.Hex;
 
 import java.io.EOFException;
+import java.util.Arrays;
 
 /**
  * *** This file is NOT a part of AOSP. ***
@@ -38,8 +39,26 @@ public final class InstructionReader {
         while (codeIn.hasMore()) {
             int currentAddress = codeIn.cursor();
             int opcodeUnit = codeIn.read();
-            int opcodeForSwitch = Opcodes.extractOpcodeFromUnit(opcodeUnit);
-            switch (opcodeForSwitch) {
+            int opcode = Opcodes.extractOpcodeFromUnit(opcodeUnit);
+            final int insnFormat = InstructionCodec.getInstructionFormat(opcode);
+            switch (insnFormat) {
+                case InstructionCodec.INSN_FORMAT_00X: {
+                    iv.visitZeroRegisterInsn(currentAddress, opcode, 0, InstructionCodec.INDEX_TYPE_NONE, 0, 0L);
+                    break;
+                }
+                case InstructionCodec.INSN_FORMAT_10X: {
+                    final int literal = InstructionCodec.byte1(opcodeUnit);
+                    iv.visitZeroRegisterInsn(currentAddress, opcode, 0, InstructionCodec.INDEX_TYPE_NONE, 0, literal);
+                    break;
+                }
+                case InstructionCodec.INSN_FORMAT_12X: {
+                    final int a = InstructionCodec.nibble2(opcodeUnit);
+                    final int b = InstructionCodec.nibble3(opcodeUnit);
+                    iv.visitTwoRegisterInsn(currentAddress, opcode, 0, InstructionCodec.INDEX_TYPE_NONE, 0, 0L, a, b);
+                    break;
+                }
+            }
+            switch (opcode) {
                 case Opcodes.SPECIAL_FORMAT: {
                     iv.visitZeroRegisterInsn(currentAddress, opcodeUnit, 0, InstructionCodec.INDEX_TYPE_NONE, 0, 0L);
                     break;
@@ -151,6 +170,8 @@ public final class InstructionReader {
                 }
                 case Opcodes.CONST_STRING:
                 case Opcodes.CONST_CLASS:
+                case Opcodes.CONST_METHOD_HANDLE:
+                case Opcodes.CONST_METHOD_TYPE:
                 case Opcodes.CHECK_CAST:
                 case Opcodes.NEW_INSTANCE:
                 case Opcodes.SGET:
@@ -415,7 +436,8 @@ public final class InstructionReader {
                 case Opcodes.INVOKE_SUPER:
                 case Opcodes.INVOKE_DIRECT:
                 case Opcodes.INVOKE_STATIC:
-                case Opcodes.INVOKE_INTERFACE: {
+                case Opcodes.INVOKE_INTERFACE:
+                case Opcodes.INVOKE_CUSTOM: {
                     int opcode = InstructionCodec.byte0(opcodeUnit);
                     int e = InstructionCodec.nibble2(opcodeUnit);
                     int registerCount = InstructionCodec.nibble3(opcodeUnit);
@@ -458,18 +480,49 @@ public final class InstructionReader {
                     }
                     break;
                 }
+                case Opcodes.INVOKE_POLYMORPHIC: {
+                    int opcode = InstructionCodec.byte0(opcodeUnit);
+                    int g = InstructionCodec.nibble2(opcodeUnit);
+                    int registerCount = InstructionCodec.nibble3(opcodeUnit);
+                    int methodIndex = codeIn.read();
+                    int cdef = codeIn.read();
+                    int c = InstructionCodec.nibble0(cdef);
+                    int d = InstructionCodec.nibble1(cdef);
+                    int e = InstructionCodec.nibble2(cdef);
+                    int f = InstructionCodec.nibble3(cdef);
+                    int protoIndex = codeIn.read();
+                    int indexType = InstructionCodec.getInstructionIndexType(opcode);
+                    if (registerCount < 1 || registerCount > 5) {
+                        throw new DexException("bogus registerCount: " + Hex.uNibble(registerCount));
+                    }
+                    int[] registers = {c, d, e, f, g};
+                    registers = Arrays.copyOfRange(registers, 0, registerCount);
+                    iv.visitInvokePolymorphicInstruction(currentAddress, opcode, methodIndex, indexType, protoIndex, registers);
+                    break;
+                }
                 case Opcodes.FILLED_NEW_ARRAY_RANGE:
                 case Opcodes.INVOKE_VIRTUAL_RANGE:
                 case Opcodes.INVOKE_SUPER_RANGE:
                 case Opcodes.INVOKE_DIRECT_RANGE:
                 case Opcodes.INVOKE_STATIC_RANGE:
-                case Opcodes.INVOKE_INTERFACE_RANGE: {
+                case Opcodes.INVOKE_INTERFACE_RANGE:
+                case Opcodes.INVOKE_CUSTOM_RANGE: {
                     int opcode = InstructionCodec.byte0(opcodeUnit);
                     int registerCount = InstructionCodec.byte1(opcodeUnit);
                     int index = codeIn.read();
                     int a = codeIn.read();
                     int indexType = InstructionCodec.getInstructionIndexType(opcode);
                     iv.visitRegisterRangeInsn(currentAddress, opcode, index, indexType, 0, 0L, a, registerCount);
+                    break;
+                }
+                case Opcodes.INVOKE_POLYMORPHIC_RANGE: {
+                    int opcode = InstructionCodec.byte0(opcodeUnit);
+                    int registerCount = InstructionCodec.byte1(opcodeUnit);
+                    int methodIndex = codeIn.read();
+                    int c = codeIn.read();
+                    int protoIndex = codeIn.read();
+                    int indexType = InstructionCodec.getInstructionIndexType(opcode);
+                    iv.visitInvokePolymorphicRangeInstruction(currentAddress, opcode, methodIndex, indexType, c, registerCount, protoIndex);
                     break;
                 }
                 case Opcodes.CONST_WIDE: {
@@ -557,7 +610,7 @@ public final class InstructionReader {
                     break;
                 }
                 default: {
-                    throw new IllegalStateException("Unknown opcode: " + Hex.u4(opcodeForSwitch));
+                    throw new IllegalStateException("Unknown opcode: " + Hex.u4(opcode));
                 }
             }
         }

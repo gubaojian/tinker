@@ -19,6 +19,24 @@ package com.tencent.tinker.android.dx.instruction;
 import com.tencent.tinker.android.dex.DexException;
 import com.tencent.tinker.android.dx.util.Hex;
 
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.asUnsignedUnit;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.codeUnit;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getAUnit;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getBUnit;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getCUnit;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getLiteralByte;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getLiteralInt;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getLiteralNibble;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getLiteralUnit;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getTarget;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getTargetByte;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.getTargetUnit;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.makeByte;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.unit0;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.unit1;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.unit2;
+import static com.tencent.tinker.android.dx.instruction.InstructionCodec.unit3;
+
 /**
  * *** This file is NOT a part of AOSP. ***
  *
@@ -51,11 +69,11 @@ public final class InstructionWriter extends InstructionVisitor {
             }
             case Opcodes.GOTO: {
                 if (this.hasPromoter) {
-                    int relativeTarget = InstructionCodec.getTarget(target, codeOut.cursor());
+                    int relativeTarget = getTarget(target, codeOut.cursor());
                     if (relativeTarget != (byte) relativeTarget) {
                         if (relativeTarget != (short) relativeTarget) {
                             short opcodeUnit = (short) Opcodes.GOTO_32;
-                            codeOut.write(opcodeUnit, InstructionCodec.unit0(relativeTarget), InstructionCodec.unit1(relativeTarget));
+                            codeOut.write(opcodeUnit, unit0(relativeTarget), unit1(relativeTarget));
                         } else {
                             short shortRelativeTarget = (short) relativeTarget;
                             short opcodeUnit = (short) Opcodes.GOTO_16;
@@ -63,36 +81,36 @@ public final class InstructionWriter extends InstructionVisitor {
                         }
                     } else {
                         relativeTarget &= 0xFF;
-                        codeOut.write(InstructionCodec.codeUnit(opcode, relativeTarget));
+                        codeOut.write(codeUnit(opcode, relativeTarget));
                     }
                 } else {
-                    int relativeTarget = InstructionCodec.getTargetByte(target, codeOut.cursor());
-                    codeOut.write(InstructionCodec.codeUnit(opcode, relativeTarget));
+                    int relativeTarget = getTargetByte(target, codeOut.cursor());
+                    codeOut.write(codeUnit(opcode, relativeTarget));
                 }
                 break;
             }
             case Opcodes.GOTO_16: {
                 if (this.hasPromoter) {
-                    int relativeTarget = InstructionCodec.getTarget(target, codeOut.cursor());
+                    int relativeTarget = getTarget(target, codeOut.cursor());
                     if (relativeTarget != (short) relativeTarget) {
                         short opcodeUnit = (short) Opcodes.GOTO_32;
-                        codeOut.write(opcodeUnit, InstructionCodec.unit0(relativeTarget), InstructionCodec.unit1(relativeTarget));
+                        codeOut.write(opcodeUnit, unit0(relativeTarget), unit1(relativeTarget));
                     } else {
                         short shortRelativeTarget = (short) relativeTarget;
                         short opcodeUnit = (short) opcode;
                         codeOut.write(opcodeUnit, shortRelativeTarget);
                     }
                 } else {
-                    short relativeTarget = InstructionCodec.getTargetUnit(target, codeOut.cursor());
+                    short relativeTarget = getTargetUnit(target, codeOut.cursor());
                     short opcodeUnit = (short) opcode;
                     codeOut.write(opcodeUnit, relativeTarget);
                 }
                 break;
             }
             case Opcodes.GOTO_32: {
-                int relativeTarget = InstructionCodec.getTarget(target, codeOut.cursor());
+                int relativeTarget = getTarget(target, codeOut.cursor());
                 short opcodeUnit = (short) opcode;
-                codeOut.write(opcodeUnit, InstructionCodec.unit0(relativeTarget), InstructionCodec.unit1(relativeTarget));
+                codeOut.write(opcodeUnit, unit0(relativeTarget), unit1(relativeTarget));
                 break;
             }
             case Opcodes.FILLED_NEW_ARRAY:
@@ -103,12 +121,12 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.INVOKE_INTERFACE: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(0, 0)
+                                makeByte(0, 0)
                         ),
                         indexUnit,
-                        InstructionCodec.codeUnit(0, 0, 0, 0)
+                        codeUnit(0, 0, 0, 0)
                 );
                 break;
             }
@@ -127,9 +145,9 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.CONST_4: {
                 short opcodeUnit = (short) opcode;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcodeUnit,
-                                InstructionCodec.makeByte(a, InstructionCodec.getLiteralNibble(literal))
+                                makeByte(a, getLiteralNibble(literal))
                         )
                 );
                 break;
@@ -144,7 +162,7 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.MONITOR_ENTER:
             case Opcodes.MONITOR_EXIT:
             case Opcodes.THROW: {
-                codeOut.write(InstructionCodec.codeUnit(opcode, a));
+                codeOut.write(codeUnit(opcode, a));
                 break;
             }
             case Opcodes.IF_EQZ:
@@ -153,33 +171,33 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.IF_GEZ:
             case Opcodes.IF_GTZ:
             case Opcodes.IF_LEZ: {
-                short relativeTarget = InstructionCodec.getTargetUnit(target, codeOut.cursor());
-                codeOut.write(InstructionCodec.codeUnit(opcode, a), relativeTarget);
+                short relativeTarget = getTargetUnit(target, codeOut.cursor());
+                codeOut.write(codeUnit(opcode, a), relativeTarget);
                 break;
             }
             case Opcodes.CONST_16:
             case Opcodes.CONST_WIDE_16: {
-                codeOut.write(InstructionCodec.codeUnit(opcode, a), InstructionCodec.getLiteralUnit(literal));
+                codeOut.write(codeUnit(opcode, a), getLiteralUnit(literal));
                 break;
             }
             case Opcodes.CONST_HIGH16:
             case Opcodes.CONST_WIDE_HIGH16: {
                 int shift = (opcode == Opcodes.CONST_HIGH16) ? 16 : 48;
                 short literalShifted = (short) (literal >> shift);
-                codeOut.write(InstructionCodec.codeUnit(opcode, a), literalShifted);
+                codeOut.write(codeUnit(opcode, a), literalShifted);
                 break;
             }
             case Opcodes.CONST_STRING: {
                 if (this.hasPromoter) {
                     if (index > 0xFFFF) {
                         codeOut.write(
-                                InstructionCodec.codeUnit(Opcodes.CONST_STRING_JUMBO, a),
-                                InstructionCodec.unit0(index),
-                                InstructionCodec.unit1(index)
+                                codeUnit(Opcodes.CONST_STRING_JUMBO, a),
+                                unit0(index),
+                                unit1(index)
                         );
                     } else {
                         short indexUnit = (short) index;
-                        codeOut.write(InstructionCodec.codeUnit(opcode, a), indexUnit);
+                        codeOut.write(codeUnit(opcode, a), indexUnit);
                     }
                 } else {
                     if (index > 0xFFFF) {
@@ -190,7 +208,7 @@ public final class InstructionWriter extends InstructionVisitor {
                         );
                     }
                     short indexUnit = (short) index;
-                    codeOut.write(InstructionCodec.codeUnit(opcode, a), indexUnit);
+                    codeOut.write(codeUnit(opcode, a), indexUnit);
                 }
                 break;
             }
@@ -212,16 +230,16 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.SPUT_CHAR:
             case Opcodes.SPUT_SHORT: {
                 short indexUnit = (short) index;
-                codeOut.write(InstructionCodec.codeUnit(opcode, a), indexUnit);
+                codeOut.write(codeUnit(opcode, a), indexUnit);
                 break;
             }
             case Opcodes.CONST:
             case Opcodes.CONST_WIDE_32: {
-                int literalInt = InstructionCodec.getLiteralInt(literal);
+                int literalInt = getLiteralInt(literal);
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, a),
-                        InstructionCodec.unit0(literalInt),
-                        InstructionCodec.unit1(literalInt)
+                        codeUnit(opcode, a),
+                        unit0(literalInt),
+                        unit1(literalInt)
                 );
                 break;
             }
@@ -243,29 +261,29 @@ public final class InstructionWriter extends InstructionVisitor {
                     }
                 }
 
-                int relativeTarget = InstructionCodec.getTarget(target, codeOut.cursor());
+                int relativeTarget = getTarget(target, codeOut.cursor());
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, a),
-                        InstructionCodec.unit0(relativeTarget),
-                        InstructionCodec.unit1(relativeTarget)
+                        codeUnit(opcode, a),
+                        unit0(relativeTarget),
+                        unit1(relativeTarget)
                 );
                 break;
             }
             case Opcodes.CONST_STRING_JUMBO: {
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, a),
-                        InstructionCodec.unit0(index),
-                        InstructionCodec.unit1(index)
+                        codeUnit(opcode, a),
+                        unit0(index),
+                        unit1(index)
                 );
                 break;
             }
             case Opcodes.CONST_WIDE: {
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, a),
-                        InstructionCodec.unit0(literal),
-                        InstructionCodec.unit1(literal),
-                        InstructionCodec.unit2(literal),
-                        InstructionCodec.unit3(literal)
+                        codeUnit(opcode, a),
+                        unit0(literal),
+                        unit1(literal),
+                        unit2(literal),
+                        unit3(literal)
                 );
                 break;
             }
@@ -277,12 +295,12 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.INVOKE_INTERFACE: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(0, 1)
+                                makeByte(0, 1)
                         ),
                         indexUnit,
-                        InstructionCodec.codeUnit(a, 0, 0, 0)
+                        codeUnit(a, 0, 0, 0)
                 );
                 break;
             }
@@ -357,9 +375,9 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.REM_DOUBLE_2ADDR: {
                 short opcodeUnit = (short) opcode;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcodeUnit,
-                                InstructionCodec.makeByte(a, b)
+                                makeByte(a, b)
                         )
                 );
                 break;
@@ -368,8 +386,8 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.MOVE_WIDE_FROM16:
             case Opcodes.MOVE_OBJECT_FROM16: {
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, a),
-                        InstructionCodec.getBUnit(b)
+                        codeUnit(opcode, a),
+                        getBUnit(b)
                 );
                 break;
             }
@@ -385,8 +403,8 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.SHR_INT_LIT8:
             case Opcodes.USHR_INT_LIT8: {
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, a),
-                        InstructionCodec.codeUnit(b, InstructionCodec.getLiteralByte(literal))
+                        codeUnit(opcode, a),
+                        codeUnit(b, getLiteralByte(literal))
                 );
                 break;
             }
@@ -396,11 +414,11 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.IF_GE:
             case Opcodes.IF_GT:
             case Opcodes.IF_LE: {
-                short relativeTarget = InstructionCodec.getTargetUnit(target, codeOut.cursor());
+                short relativeTarget = getTargetUnit(target, codeOut.cursor());
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(a, b)
+                                makeByte(a, b)
                         ),
                         relativeTarget
                 );
@@ -415,11 +433,11 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.OR_INT_LIT16:
             case Opcodes.XOR_INT_LIT16: {
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(a, b)
+                                makeByte(a, b)
                         ),
-                        InstructionCodec.getLiteralUnit(literal)
+                        getLiteralUnit(literal)
                 );
                 break;
             }
@@ -441,9 +459,9 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.IPUT_SHORT: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(a, b)
+                                makeByte(a, b)
                         ),
                         indexUnit
                 );
@@ -453,7 +471,7 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.MOVE_WIDE_16:
             case Opcodes.MOVE_OBJECT_16: {
                 short opcodeUnit = (short) opcode;
-                codeOut.write(opcodeUnit, InstructionCodec.getAUnit(a), InstructionCodec.getBUnit(b));
+                codeOut.write(opcodeUnit, getAUnit(a), getBUnit(b));
                 break;
             }
             case Opcodes.FILLED_NEW_ARRAY:
@@ -464,12 +482,12 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.INVOKE_INTERFACE: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(0, 2)
+                                makeByte(0, 2)
                         ),
                         indexUnit,
-                        InstructionCodec.codeUnit(a, b, 0, 0)
+                        codeUnit(a, b, 0, 0)
                 );
                 break;
             }
@@ -533,8 +551,8 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.DIV_DOUBLE:
             case Opcodes.REM_DOUBLE: {
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, a),
-                        InstructionCodec.codeUnit(b, c)
+                        codeUnit(opcode, a),
+                        codeUnit(b, c)
                 );
                 break;
             }
@@ -546,12 +564,12 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.INVOKE_INTERFACE: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(0, 3)
+                                makeByte(0, 3)
                         ),
                         indexUnit,
-                        InstructionCodec.codeUnit(a, b, c, 0)
+                        codeUnit(a, b, c, 0)
                 );
                 break;
             }
@@ -571,12 +589,12 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.INVOKE_INTERFACE: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(0, 4)
+                                makeByte(0, 4)
                         ),
                         indexUnit,
-                        InstructionCodec.codeUnit(a, b, c, d)
+                        codeUnit(a, b, c, d)
                 );
                 break;
             }
@@ -596,12 +614,12 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.INVOKE_INTERFACE: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(
+                        codeUnit(
                                 opcode,
-                                InstructionCodec.makeByte(e, 5)
+                                makeByte(e, 5)
                         ),
                         indexUnit,
-                        InstructionCodec.codeUnit(a, b, c, d)
+                        codeUnit(a, b, c, d)
                 );
                 break;
             }
@@ -621,9 +639,9 @@ public final class InstructionWriter extends InstructionVisitor {
             case Opcodes.INVOKE_INTERFACE_RANGE: {
                 short indexUnit = (short) index;
                 codeOut.write(
-                        InstructionCodec.codeUnit(opcode, registerCount),
+                        codeUnit(opcode, registerCount),
                         indexUnit,
-                        InstructionCodec.getAUnit(a));
+                        getAUnit(a));
                 break;
             }
             default: {
@@ -632,12 +650,41 @@ public final class InstructionWriter extends InstructionVisitor {
         }
     }
 
+    @Override
+    public void visitInvokePolymorphicInstruction(int currentAddress, int opcode, int methodIndex, int indexType, int protoIndex, int[] registers) {
+        short indexUnit = (short) methodIndex;
+        codeOut.write(
+                codeUnit(opcode,
+                        makeByte((registers.length > 4 ? registers[4] : 0) /* reg G */, registers.length)
+                ),
+                indexUnit,
+                codeUnit(
+                        (registers.length > 0 ? registers[0] : 0), /* c */
+                        (registers.length > 1 ? registers[1] : 0), /* d */
+                        (registers.length > 2 ? registers[2] : 0), /* e */
+                        (registers.length > 3 ? registers[3] : 0)  /* f */
+                ),
+                (short) protoIndex
+        );
+    }
+
+    @Override
+    public void visitInvokePolymorphicRangeInstruction(int currentAddress, int opcode, int methodIndex, int indexType, int c, int registerCount, int protoIndex) {
+        short indexUnit = (short) methodIndex;
+        codeOut.write(
+                codeUnit(opcode, registerCount),
+                indexUnit,
+                getCUnit(c),
+                (short) protoIndex
+        );
+    }
+
     public void visitSparseSwitchPayloadInsn(int currentAddress, int opcode, int[] keys, int[] targets) {
         int baseAddress = codeOut.baseAddressForCursor();
 
         short opcodeUnit = (short) opcode;
         codeOut.write(opcodeUnit);
-        codeOut.write(InstructionCodec.asUnsignedUnit(targets.length));
+        codeOut.write(asUnsignedUnit(targets.length));
 
         for (int key : keys) {
             codeOut.writeInt(key);
@@ -660,7 +707,7 @@ public final class InstructionWriter extends InstructionVisitor {
 
         short opcodeUnit = (short) opcode;
         codeOut.write(opcodeUnit);
-        codeOut.write(InstructionCodec.asUnsignedUnit(targets.length));
+        codeOut.write(asUnsignedUnit(targets.length));
         codeOut.writeInt(firstKey);
 
         if (this.hasPromoter) {
